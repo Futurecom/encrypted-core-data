@@ -3769,24 +3769,24 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                 operand:(id *)operand
                bindings:(id *)bindings {
     NSExpressionType type = [expression expressionType];
-    
+
     id value = nil;
-    
+
     // key path expressed as function expression
     if (type == NSFunctionExpressionType) {
         NSString *methodString = NSStringFromSelector(@selector(valueForKeyPath:));
-        
+
         if ([[expression function] isEqualToString:methodString]) {
             NSExpression *argumentExpression;
             argumentExpression = [[expression arguments] objectAtIndex:0];
-            
+
             if ([argumentExpression expressionType] == NSConstantValueExpressionType) {
                 value = [argumentExpression constantValue];
                 type = NSKeyPathExpressionType;
             }
         }
     }
-    
+
     // reference a column in the query
     if (type == NSKeyPathExpressionType) {
         if (value == nil) {
@@ -3803,7 +3803,7 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                 value = [NSString stringWithFormat:@"%@.%@",
                          [self joinedTableNameForComponents:keys forRelationship:NO],
                          @"__objectid"];
-                    
+
             }
             else {
                 value = [NSString stringWithFormat:@"%@.%@",
@@ -3820,7 +3820,7 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
             // We have a join table property, we need to rewrite the query.
             NSMutableArray *pathComponents = [[value componentsSeparatedByString:@"."] mutableCopy];
             NSString *lastComponent = [pathComponents lastObject];
-            
+
             NSMutableString *sumBuilder = [NSMutableString stringWithString:@"HAVING SUM("];
             // Check if this is a sum, we assume it is and discard the results if not
             for (int i = 0 ; i < pathComponents.count; i++) {
@@ -3830,7 +3830,7 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                 } else {
                     // Check if it is a relation
                     NSRelationshipDescription *rel = [[entity relationshipsByName]
-                                                  objectForKey:[pathComponents objectAtIndex:i]];
+                                                      objectForKey:[pathComponents objectAtIndex:i]];
                     NSRelationshipDescription *inverse = [rel inverseRelationship];
                     if(rel != nil) {
                         if ([rel isToMany] && [inverse isToMany]) {
@@ -3850,19 +3850,19 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                     }
                 }//
             }
-            
-            
+
+
             // Test if the last component is actually a predicate
             // TODO: Conflict if the model has an attribute named length?
             NSString * entityTableName = [self tableNameForEntity:entity];
             if ([lastComponent isEqualToString:@"length"]){
-                                
+
                 // We terminate when there is one item left since that is the field of interest
                 for (int i = 0 ; i < pathComponents.count - 1; i++) {
                     NSRelationshipDescription *rel = [[entity relationshipsByName]
                                                       objectForKey:[pathComponents objectAtIndex:i]];
                     NSRelationshipDescription *inverse = [rel inverseRelationship];
-                    
+
                     if(rel != nil) {
                         if ([rel isToMany] && [inverse isToMany]) {
                             [pathComponents replaceObjectAtIndex:0 withObject:
@@ -3879,7 +3879,7 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                 // to resolve the issue "ambiguous column name:" in case of join clause, we need
                 // to add entityTableName before the column name explictly
                 value = [NSString stringWithFormat:@"LENGTH(%@.%@)", entityTableName,
-                                [[pathComponents subarrayWithRange:NSMakeRange(0, pathComponents.count - 1)] componentsJoinedByString:@"."]];
+                         [[pathComponents subarrayWithRange:NSMakeRange(0, pathComponents.count - 1)] componentsJoinedByString:@"."]];
 
                 foundPredicate = YES;
             }
@@ -4063,10 +4063,10 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                 // Let it be known we did it!
                 foundPredicate = YES;
             }
-            
+
             if(!foundPredicate) {
                 NSString * lastComponentName = lastComponent;
-                
+
                 // Handle the case where the last component points to a relationship rather than a simple attribute
                 __block NSDictionary * subProperties = properties;
                 __block id localProperty = nil;
@@ -4080,14 +4080,14 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
                         *stop = YES;
                     }
                 }];
-                
+
                 if ([localProperty isKindOfClass:[NSRelationshipDescription class]]) {
                     [request setReturnsDistinctResults:YES];
                     lastComponentName = @"__objectID";
                 }
-                
+
                 value = [NSString stringWithFormat:@"%@.%@",
-                     [self joinedTableNameForComponents:[pathComponents subarrayWithRange:NSMakeRange(0, pathComponents.count -1)] forRelationship:NO], lastComponentName];
+                         [self joinedTableNameForComponents:[pathComponents subarrayWithRange:NSMakeRange(0, pathComponents.count -1)] forRelationship:NO], lastComponentName];
             }
         }
         NSComparisonPredicateOptions options = [predicate options];
@@ -4098,13 +4098,13 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
         } else if (options & NSDiacriticInsensitivePredicateOption) {
             *operand = [@[@"STRIP_DIACRITICS(", value, @")"] componentsJoinedByString:@""];
         } else {
-        *operand = value;
-    }
+            *operand = value;
+        }
     }
     else if (type == NSEvaluatedObjectExpressionType) {
         *operand = @"__objectid";
     }
-    
+
     // a value to be bound to the query
     else if (type == NSConstantValueExpressionType) {
         value = [expression constantValue];
@@ -4134,10 +4134,10 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
             }
         }
         else if ([value isKindOfClass:[NSString class]]) {
-                if ([[operator objectForKey:@"operator"] isEqualToString:@"LIKE"]) {
-                    BOOL isLike = predicate.predicateOperatorType == NSLikePredicateOperatorType;
-                    value = [self escapedString:value allowWildcards:isLike];
-                }
+            if ([[operator objectForKey:@"operator"] isEqualToString:@"LIKE"]) {
+                BOOL isLike = predicate.predicateOperatorType == NSLikePredicateOperatorType;
+                value = [self escapedString:value allowWildcards:isLike];
+            }
             NSComparisonPredicateOptions options = [predicate options];
             if ((options & NSCaseInsensitivePredicateOption) && (options & NSDiacriticInsensitivePredicateOption)) {
                 value = [value stringByFoldingWithOptions:NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch locale:nil];
@@ -4146,7 +4146,7 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
             } else if (options & NSDiacriticInsensitivePredicateOption) {
                 value = [value stringByFoldingWithOptions:NSDiacriticInsensitiveSearch locale:nil];
             }
-                *operand = @"?";
+            *operand = @"?";
             *bindings = [NSString stringWithFormat:[operator objectForKey:@"format"], value];
         } else if ([value isKindOfClass:[NSManagedObject class]] || [value isKindOfClass:[NSManagedObjectID class]]) {
             NSManagedObjectID * objectId = [value isKindOfClass:[NSManagedObject class]] ? [value objectID]:value;
@@ -4194,10 +4194,10 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
         }
 
         *operand = [NSString stringWithFormat:[operator objectForKey:@"format"],
-                                                [subOperands componentsJoinedByString:@","]];
+                                              [subOperands componentsJoinedByString:@","]];
         *bindings = [*bindings cmdFlatten];
     }
-    
+
     // unsupported type
     else {
         NSLog(@"%s Unsupported expression type %lu", __PRETTY_FUNCTION__, (unsigned long)type);
