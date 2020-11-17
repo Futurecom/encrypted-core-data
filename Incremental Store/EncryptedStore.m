@@ -432,10 +432,21 @@ static const NSInteger kTableCheckVersion = 1;
     return objectIDs;
 }
 
-- (id)executeRequest:(NSPersistentStoreRequest *)request
+- (id)executeRequest:(NSPersistentStoreRequest *)persistentStoreRequest
          withContext:(NSManagedObjectContext *)context
                error:(NSError **)error {
-    
+
+    NSPersistentStoreRequest *request = persistentStoreRequest;
+    if (persistentStoreRequest && [persistentStoreRequest isKindOfClass:[NSFetchRequest class]]) {
+        // Core Data exception with reason "Can't get value for 'batch' in bindings"
+        // https://developer.apple.com/forums/thread/663351
+        NSFetchRequest *initialRequest = (NSFetchRequest *)persistentStoreRequest;
+        if (initialRequest.fetchBatchSize != 0) {
+            initialRequest.fetchBatchSize = 0;
+            request = initialRequest;
+        }
+    }
+
     if ([request requestType] == NSFetchRequestType) {
         
         // prepare values
