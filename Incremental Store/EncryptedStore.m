@@ -3590,105 +3590,109 @@ static void dbsqliteStripCaseDiacritics(sqlite3_context *context, int argc, cons
     
     NSString *query = @"";
     NSMutableArray *bindings = [NSMutableArray array];
-    
-    if ([predicate isKindOfClass:[NSCompoundPredicate class]]) {
-        NSCompoundPredicate *compoundPredicate = (NSCompoundPredicate*)predicate;
-        
-        // get subpredicates
-        NSMutableArray *queries = [NSMutableArray array];
-        [compoundPredicate.subpredicates enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
-            NSDictionary *result = [self recursiveWhereClauseWithFetchRequest:request predicate:obj];
-            [queries addObject:[result objectForKey:@"query"]];
-            [bindings addObjectsFromArray:[result objectForKey:@"bindings"]];
-        }];
-        
-        // build query
-        switch (compoundPredicate.compoundPredicateType) {
-            case NSNotPredicateType:
-                assert(queries.count == 1);
-                query = [NSString stringWithFormat:@"(NOT %@)", queries[0]];
-                break;
-                
-            case NSAndPredicateType:
-                query = [NSString stringWithFormat:@"(%@)",
-                         [queries componentsJoinedByString:@" AND "]];
-                break;
-                
-            case NSOrPredicateType:
-                query = [NSString stringWithFormat:@"(%@)",
-                         [queries componentsJoinedByString:@" OR "]];
-                break;
-                
-            default:
-                break;
-        }
-    }
-    
-    else if ([predicate isKindOfClass:[NSComparisonPredicate class]]) {
-        NSComparisonPredicate *comparisonPredicate = (NSComparisonPredicate*)predicate;
-        
-        NSNumber *type = @(comparisonPredicate.predicateOperatorType);
-        NSComparisonPredicateModifier predicateModifier = comparisonPredicate.comparisonPredicateModifier;
-        if (predicateModifier == NSAnyPredicateModifier) {
-            [request setReturnsDistinctResults:YES];
-        }
-        NSDictionary *operator = [operators objectForKey:type];
-        
-        // left expression
-        id leftOperand = nil;
-        id leftBindings = nil;
-        [self parseExpression:comparisonPredicate.leftExpression
-                  inPredicate:comparisonPredicate
-               inFetchRequest:request
-                     operator:operator
-                      operand:&leftOperand
-                     bindings:&leftBindings];
-        
-        // right expression
-        id rightOperand = nil;
-        id rightBindings = nil;
-        [self parseExpression:comparisonPredicate.rightExpression
-                  inPredicate:comparisonPredicate
-               inFetchRequest:request
-                     operator:operator
-                      operand:&rightOperand
-                     bindings:&rightBindings];
-        
-        // build result and return
-        if (rightOperand && !rightBindings) {
-            if([[operator objectForKey:@"operator"] isEqualToString:@"!="]) {
-                query = [@[leftOperand, @"IS NOT", rightOperand] componentsJoinedByString:@" "];
-            } else {
-                query = [@[leftOperand, @"IS", rightOperand] componentsJoinedByString:@" "];
+
+    @try {
+        if ([predicate isKindOfClass:[NSCompoundPredicate class]]) {
+            NSCompoundPredicate *compoundPredicate = (NSCompoundPredicate*)predicate;
+
+            // get subpredicates
+            NSMutableArray *queries = [NSMutableArray array];
+            [compoundPredicate.subpredicates enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
+                NSDictionary *result = [self recursiveWhereClauseWithFetchRequest:request predicate:obj];
+                [queries addObject:[result objectForKey:@"query"]];
+                [bindings addObjectsFromArray:[result objectForKey:@"bindings"]];
+            }];
+
+            // build query
+            switch (compoundPredicate.compoundPredicateType) {
+                case NSNotPredicateType:
+                    assert(queries.count == 1);
+                    query = [NSString stringWithFormat:@"(NOT %@)", queries[0]];
+                    break;
+
+                case NSAndPredicateType:
+                    query = [NSString stringWithFormat:@"(%@)",
+                             [queries componentsJoinedByString:@" AND "]];
+                    break;
+
+                case NSOrPredicateType:
+                    query = [NSString stringWithFormat:@"(%@)",
+                             [queries componentsJoinedByString:@" OR "]];
+                    break;
+
+                default:
+                    break;
             }
         }
-        else {
-            query = [@[leftOperand, [operator objectForKey:@"operator"], rightOperand] componentsJoinedByString:@" "];
-            if ([[operator objectForKey:@"operator"] isEqualToString:@"LIKE"]) {
-                query = [query stringByAppendingString:@" ESCAPE '\\'"];
+
+        else if ([predicate isKindOfClass:[NSComparisonPredicate class]]) {
+            NSComparisonPredicate *comparisonPredicate = (NSComparisonPredicate*)predicate;
+
+            NSNumber *type = @(comparisonPredicate.predicateOperatorType);
+            NSComparisonPredicateModifier predicateModifier = comparisonPredicate.comparisonPredicateModifier;
+            if (predicateModifier == NSAnyPredicateModifier) {
+                [request setReturnsDistinctResults:YES];
             }
+            NSDictionary *operator = [operators objectForKey:type];
+
+            // left expression
+            id leftOperand = nil;
+            id leftBindings = nil;
+            [self parseExpression:comparisonPredicate.leftExpression
+                      inPredicate:comparisonPredicate
+                   inFetchRequest:request
+                         operator:operator
+                          operand:&leftOperand
+                         bindings:&leftBindings];
+
+            // right expression
+            id rightOperand = nil;
+            id rightBindings = nil;
+            [self parseExpression:comparisonPredicate.rightExpression
+                      inPredicate:comparisonPredicate
+                   inFetchRequest:request
+                         operator:operator
+                          operand:&rightOperand
+                         bindings:&rightBindings];
+
+            // build result and return
+            if (rightOperand && !rightBindings) {
+                if([[operator objectForKey:@"operator"] isEqualToString:@"!="]) {
+                    query = [@[leftOperand, @"IS NOT", rightOperand] componentsJoinedByString:@" "];
+                } else {
+                    query = [@[leftOperand, @"IS", rightOperand] componentsJoinedByString:@" "];
+                }
+            }
+            else {
+                query = [@[leftOperand, [operator objectForKey:@"operator"], rightOperand] componentsJoinedByString:@" "];
+                if ([[operator objectForKey:@"operator"] isEqualToString:@"LIKE"]) {
+                    query = [query stringByAppendingString:@" ESCAPE '\\'"];
+                }
+            }
+
+            NSMutableArray *comparisonBindings = [NSMutableArray arrayWithCapacity:2];
+            if (leftBindings)  [comparisonBindings addObject:leftBindings];
+
+
+            if ( [comparisonPredicate.rightExpression expressionType] == NSConstantValueExpressionType
+                && [[comparisonPredicate.rightExpression constantValue] isKindOfClass:[NSDate class]]) {
+
+                leftOperand = [NSString stringWithFormat:@"%@", leftOperand];
+            }
+
+            if (rightBindings) [comparisonBindings addObject:rightBindings];
+            bindings = [[comparisonBindings cmdFlatten] mutableCopy];
         }
-        
-        NSMutableArray *comparisonBindings = [NSMutableArray arrayWithCapacity:2];
-        if (leftBindings)  [comparisonBindings addObject:leftBindings];
-        
-        
-        if ( [comparisonPredicate.rightExpression expressionType] == NSConstantValueExpressionType
-            && [[comparisonPredicate.rightExpression constantValue] isKindOfClass:[NSDate class]]) {
-            
-            leftOperand = [NSString stringWithFormat:@"%@", leftOperand];
+
+        else if ([predicate isEqual:[NSPredicate predicateWithValue:YES]]) {
+            query = @"1";
         }
-        
-        if (rightBindings) [comparisonBindings addObject:rightBindings];
-        bindings = [[comparisonBindings cmdFlatten] mutableCopy];
-    }
-    
-    else if ([predicate isEqual:[NSPredicate predicateWithValue:YES]]) {
-        query = @"1";
-    }
-    
-    else if ([predicate isEqual:[NSPredicate predicateWithValue:NO]]) {
-        query = @"0";
+
+        else if ([predicate isEqual:[NSPredicate predicateWithValue:NO]]) {
+            query = @"0";
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"Exception Caught: %@", exception);
     }
 
     return @{ @"query": query,
